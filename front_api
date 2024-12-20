@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consulta de Orçamentos</title>
+    <style>
+        body {
+            font-family: 'Roboto', Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #f4f6f9;
+            color: #333;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 700px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            font-size: 24px;
+            color: #007bff;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #555;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+            transition: border-color 0.2s;
+        }
+        .form-group input:focus {
+            border-color: #007bff;
+            outline: none;
+        }
+        button {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            color: white;
+            background: #007bff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .results {
+            margin-top: 30px;
+        }
+        .results h2 {
+            font-size: 20px;
+            color: #007bff;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 8px;
+            margin-bottom: 20px;
+        }
+        #selectedOrcamentos {
+            margin-top: 20px;
+        }
+        .message {
+            border: 1px solid #ddd;
+            background: #f9f9f9;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        .totals {
+            text-align: center;
+            font-size: 18px;
+            color: #333;
+            margin-top: 30px;
+        }
+        .totals span {
+            font-weight: bold;
+            color: #007bff;
+        }
+        #copyButton {
+            margin-top: 20px;
+            background: #28a745;
+        }
+        #copyButton:hover {
+            background: #218838;
+        }
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+            button {
+                font-size: 14px;
+            }
+            .totals {
+                font-size: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Pharmes - Consulta de Orçamentos</h1>
+        <div class="form-group">
+            <label for="cdfil">Filial</label>
+            <input type="text" id="cdfil" placeholder="Digite o código da filial">
+        </div>
+        <div class="form-group">
+            <label for="nrorc">Número do Orçamento</label>
+            <input type="text" id="nrorc" placeholder="Digite o número do orçamento">
+        </div>
+        <button id="fetchData">Consultar</button>
+
+        <div class="results" id="results" style="display: none;">
+            <h2>Resultados</h2>
+            <div>
+                <label>
+                    <input type="checkbox" id="selectAll"> Selecionar Todos
+                </label>
+            </div>
+            <div id="options"></div>
+        </div>
+
+        <div id="selectedOrcamentos"></div>
+
+        <div class="totals" id="totals">
+            <div>💰 Total Bruto: <span>R$ 0.00</span></div>
+            <div>🎉Total Desconto: <span>R$ 0.00</span></div>
+            <div>💲Total Geral: <span>R$ 0.00</span></div>
+        </div>
+        <button id="copyButton" style="display: none;">Copiar Orçamentos</button>
+    </div>
+
+    <script>
+        const formatter = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2 });
+
+        document.getElementById('fetchData').addEventListener('click', async () => {
+            const cdfil = document.getElementById('cdfil').value;
+            const nrorc = document.getElementById('nrorc').value;
+
+            if (!cdfil || !nrorc) {
+                alert('Por favor, preencha os campos de filial e número do orçamento.');
+                return;
+            }
+
+            try {
+                const response = await fetch(`http://3.19.234.123:3000/requisicoes?nrorc=${nrorc}&cdfil=${cdfil}`);
+                if (!response.ok) {
+                    throw new Error('Erro ao buscar os dados');
+                }
+
+                const data = await response.json();
+                renderResults(data);
+                document.getElementById('results').style.display = 'block';
+                document.getElementById('copyButton').style.display = 'block';
+            } catch (error) {
+                alert(error.message);
+            }
+        });
+
+        function renderResults(data) {
+            const optionsContainer = document.getElementById('options');
+            optionsContainer.innerHTML = '';
+
+            data.forEach((orcamento, index) => {
+                const option = document.createElement('div');
+                option.innerHTML = `
+                    <label>
+                        <input type="checkbox" class="orcamento-checkbox" 
+                               data-index="${index}" 
+                               data-bruto="${orcamento.Valor_Bruto}" 
+                               data-desconto="${orcamento.Valor_Desconto}" 
+                               data-componentes="${orcamento['Componentes da Fórmula']}">
+                        ${orcamento['N° Orçamento']}
+                    </label>
+                `;
+                optionsContainer.appendChild(option);
+            });
+
+            document.getElementById('selectAll').addEventListener('change', event => {
+                const checked = event.target.checked;
+                document.querySelectorAll('.orcamento-checkbox').forEach(checkbox => {
+                    checkbox.checked = checked;
+                    checkbox.dispatchEvent(new Event('change'));
+                });
+            });
+
+            document.querySelectorAll('.orcamento-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', updateSelected);
+            });
+        }
+
+        function updateSelected() {
+    const selectedContainer = document.getElementById('selectedOrcamentos');
+    const totalsContainer = document.getElementById('totals');
+
+    selectedContainer.innerHTML = '';
+    let totalBruto = 0;
+    let totalDesconto = 0;
+    let totalGeral = 0;
+    let copiedText = '';
+
+    const introMessage = `
+✨ Obrigado por escolher nossa farmácia de manipulação! ✨
+
+Seu orçamento foi concluído com sucesso e está prontinho para atender suas necessidades com qualidade e cuidado. Confira os detalhes abaixo:
+
+`;
+
+    const conclusionMessage = `
+💡 Próximos Passos:
+👉 Assim que aprovado, nossa equipe começa imediatamente a manipular sua fórmula com todo o cuidado que você merece. Qualquer dúvida, estamos prontos para ajudar!
+
+Conte conosco para sua saúde e bem-estar!
+
+💚 Pharmes, sempre ao seu lado.
+`;
+
+    copiedText += introMessage; 
+
+    document.querySelectorAll('.orcamento-checkbox:checked').forEach(checkbox => {
+        const bruto = parseFloat(checkbox.getAttribute('data-bruto'));
+        const desconto = parseFloat(checkbox.getAttribute('data-desconto'));
+        const componentes = checkbox.getAttribute('data-componentes');
+
+        totalBruto += bruto;
+        totalDesconto += desconto;
+        totalGeral += bruto - desconto;
+
+        const formattedBruto = formatter.format(bruto);
+        const formattedDesconto = formatter.format(desconto);
+        const formattedGeral = formatter.format(bruto - desconto);
+
+        const message = document.createElement('div');
+        message.classList.add('message');
+        message.innerHTML = `
+            <strong>💊 Orçamento N:</strong> ${checkbox.parentNode.textContent.trim()}<br>
+            <strong>Bruto:</strong> R$ ${formattedBruto} | <strong>Desconto:</strong> R$ ${formattedDesconto} | <strong>Geral:</strong> R$ ${formattedGeral}<br>
+            <strong>📦 Fórmula Manipulada:</strong> ${componentes}<br>
+        `;
+        selectedContainer.appendChild(message);
+
+   
+        copiedText += `
+💊 Orçamento N: ${checkbox.parentNode.textContent.trim()}
+Bruto: R$ ${formattedBruto} | Desconto: R$ ${formattedDesconto} | Geral: R$ ${formattedGeral}
+📦 Fórmula Manipulada: ${componentes}\n\n`;
+    });
+
+
+    copiedText += `
+Totais Consolidados:
+💰 Total Bruto: R$ ${formatter.format(totalBruto)}
+🎉 Total Desconto: R$ ${formatter.format(totalDesconto)}
+💲 Total Geral: R$ ${formatter.format(totalGeral)}
+
+`;
+
+    
+    copiedText += conclusionMessage;
+
+    totalsContainer.innerHTML = `
+        <div>💰 Total Bruto: <span>R$ ${formatter.format(totalBruto)}</span></div>
+        <div>🎉 Total Desconto: <span>R$ ${formatter.format(totalDesconto)}</span></div>
+        <div>💲 Total Geral: <span>R$ ${formatter.format(totalGeral)}</span></div>
+    `;
+
+    document.getElementById('copyButton').onclick = () => {
+        navigator.clipboard.writeText(copiedText).then(() => {
+            alert('Orçamentos copiados com sucesso!');
+        });
+    };
+}
+
+
+</script>
+</body>
+</html>
